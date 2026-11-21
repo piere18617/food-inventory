@@ -1,0 +1,525 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#17251d">
+<title>Food Inventory</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #101713;
+  color: #f1f5f1;
+}
+
+header {
+  padding: 24px 20px;
+  background: #192720;
+  border-bottom: 1px solid #2e4034;
+}
+
+header h1 { margin: 0; font-size: 26px; }
+header p { color: #9eb3a2; margin-bottom: 0; }
+
+main {
+  max-width: 700px;
+  margin: auto;
+  padding: 16px;
+}
+
+.card {
+  background: #19241d;
+  border: 1px solid #304235;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+button, input {
+  font: inherit;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+button {
+  border: none;
+  cursor: pointer;
+  background: #83d69a;
+  color: #102016;
+  font-weight: bold;
+}
+
+button.secondary {
+  background: #29372d;
+  color: #e5eee6;
+}
+
+button.danger {
+  background: #592e32;
+  color: #ffdddd;
+}
+
+button:active { transform: scale(.98); }
+
+input {
+  background: #101713;
+  color: white;
+  border: 1px solid #405544;
+  width: 100%;
+  outline: none;
+}
+
+input:focus { border-color: #83d69a; }
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.row input { flex: 1; }
+
+#reader {
+  overflow: hidden;
+  border-radius: 12px;
+  width: 100%;
+}
+
+#reader video {
+  border-radius: 12px;
+}
+
+.stats {
+  display: flex;
+  gap: 12px;
+}
+
+.stat {
+  flex: 1;
+  background: #243329;
+  padding: 14px;
+  border-radius: 12px;
+}
+
+.stat strong {
+  font-size: 25px;
+  display: block;
+}
+
+.stat span {
+  font-size: 13px;
+  color: #a8b9aa;
+}
+
+.product {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 0;
+  border-bottom: 1px solid #304235;
+}
+
+.product:last-child { border-bottom: 0; }
+
+.product-info { flex: 1; min-width: 0; }
+.product-info strong { display: block; overflow-wrap: anywhere; }
+.product-info small { color: #9eb3a2; }
+
+.quantity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quantity button {
+  padding: 8px 12px;
+  min-width: 38px;
+}
+
+.quantity span {
+  min-width: 24px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.hidden { display: none !important; }
+
+#message {
+  margin-top: 10px;
+  color: #83d69a;
+  min-height: 20px;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 10;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 420px;
+  background: #19241d;
+  border: 1px solid #405544;
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.modal-content h2 { margin-top: 0; }
+.modal-content label { display: block; margin: 14px 0 6px; }
+.modal-content button { width: 100%; margin-top: 12px; }
+
+footer {
+  text-align: center;
+  color: #819284;
+  font-size: 12px;
+  padding: 20px;
+}
+
+@media (max-width: 420px) {
+  main { padding: 12px; }
+  .card { padding: 13px; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🥫 Food Inventory</h1>
+  <p>Your household stock tracker</p>
+</header>
+
+<main>
+
+  <div class="card">
+    <div class="stats">
+      <div class="stat">
+        <strong id="productCount">0</strong>
+        <span>Products</span>
+      </div>
+      <div class="stat">
+        <strong id="totalCount">0</strong>
+        <span>Total items</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📷 Barcode Scanner</h2>
+    <div id="reader"></div>
+    <div class="row" style="margin-top:12px">
+      <button id="startCamera">Start camera</button>
+      <button id="stopCamera" class="secondary">Stop camera</button>
+    </div>
+    <div id="message"></div>
+  </div>
+
+  <div class="card">
+    <h2>⌨️ Enter barcode manually</h2>
+    <div class="row">
+      <input id="manualBarcode" placeholder="Enter barcode number"
+             inputmode="numeric">
+      <button id="manualSubmit">Scan</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📦 Inventory</h2>
+    <input id="search" placeholder="Search products..." style="margin-bottom:12px">
+    <div id="inventoryList"></div>
+  </div>
+
+  <div class="card">
+    <h2>💾 Database backup</h2>
+    <p style="color:#a8b9aa">
+      Export your inventory to a JSON file or import a previous backup.
+    </p>
+    <div class="row">
+      <button id="exportBtn" style="flex:1">Export database</button>
+      <button id="importBtn" class="secondary" style="flex:1">Import database</button>
+    </div>
+    <input type="file" id="fileInput" accept=".json" class="hidden">
+  </div>
+
+</main>
+
+<footer>Food Inventory • Saved on this device</footer>
+
+<!-- New product modal -->
+<div id="modal" class="modal hidden">
+  <div class="modal-content">
+    <h2>🆕 New product</h2>
+    <p id="newBarcode" style="color:#83d69a;overflow-wrap:anywhere"></p>
+
+    <label for="productName">Product name</label>
+    <input id="productName" placeholder="e.g. Baked Beans">
+
+    <label for="productQuantity">Starting quantity</label>
+    <input id="productQuantity" type="number" min="0" value="1">
+
+    <button id="saveProduct">Save product</button>
+    <button id="cancelProduct" class="secondary">Cancel</button>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "foodInventory_v1";
+
+let inventory = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+let scanner = null;
+let cameraRunning = false;
+let pendingBarcode = null;
+let scanCooldown = {};
+
+const $ = id => document.getElementById(id);
+
+function saveDB() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(inventory));
+  render();
+}
+
+function showMessage(text) {
+  $("message").textContent = text;
+}
+
+function render() {
+  const products = Object.values(inventory);
+
+  $("productCount").textContent = products.length;
+  $("totalCount").textContent =
+    products.reduce((sum, p) => sum + Number(p.quantity || 0), 0);
+
+  const search = $("search").value.toLowerCase().trim();
+  const list = $("inventoryList");
+  list.innerHTML = "";
+
+  const filtered = products
+    .filter(p => p.name.toLowerCase().includes(search)
+      || p.barcode.includes(search))
+    .sort((a,b) => a.name.localeCompare(b.name));
+
+  if (!filtered.length) {
+    list.innerHTML = "<p style='color:#9eb3a2'>No products found.</p>";
+    return;
+  }
+
+  filtered.forEach(product => {
+    const row = document.createElement("div");
+    row.className = "product";
+
+    const info = document.createElement("div");
+    info.className = "product-info";
+
+    const name = document.createElement("strong");
+    name.textContent = product.name;
+
+    const barcode = document.createElement("small");
+    barcode.textContent = product.barcode;
+
+    info.append(name, barcode);
+
+    const controls = document.createElement("div");
+    controls.className = "quantity";
+
+    const minus = document.createElement("button");
+    minus.className = "secondary";
+    minus.textContent = "−";
+    minus.onclick = () => changeQuantity(product.barcode, -1);
+
+    const amount = document.createElement("span");
+    amount.textContent = product.quantity;
+
+    const plus = document.createElement("button");
+    plus.textContent = "+";
+    plus.onclick = () => changeQuantity(product.barcode, 1);
+
+    controls.append(minus, amount, plus);
+    row.append(info, controls);
+    list.appendChild(row);
+  });
+}
+
+function changeQuantity(barcode, amount) {
+  if (!inventory[barcode]) return;
+  inventory[barcode].quantity = Math.max(
+    0, Number(inventory[barcode].quantity) + amount
+  );
+  saveDB();
+}
+
+function handleBarcode(barcode) {
+  barcode = String(barcode).trim();
+  if (!barcode) return;
+
+  // Prevent the camera reading the same barcode repeatedly
+  // while the item is held in front of the camera.
+  const now = Date.now();
+  if (scanCooldown[barcode] && now - scanCooldown[barcode] < 1800) {
+    return;
+  }
+  scanCooldown[barcode] = now;
+
+  if (inventory[barcode]) {
+    inventory[barcode].quantity++;
+    saveDB();
+    showMessage("✅ " + inventory[barcode].name +
+      " +1 (Total: " + inventory[barcode].quantity + ")");
+  } else {
+    openNewProduct(barcode);
+  }
+}
+
+function openNewProduct(barcode) {
+  pendingBarcode = barcode;
+  $("newBarcode").textContent = "Barcode: " + barcode;
+  $("productName").value = "";
+  $("productQuantity").value = "1";
+  $("modal").classList.remove("hidden");
+  $("productName").focus();
+}
+
+function closeModal() {
+  $("modal").classList.add("hidden");
+  pendingBarcode = null;
+}
+
+$("saveProduct").onclick = () => {
+  const name = $("productName").value.trim();
+  const quantity = Number($("productQuantity").value);
+
+  if (!name) {
+    alert("Please enter a product name.");
+    return;
+  }
+
+  if (!Number.isFinite(quantity) || quantity < 0) {
+    alert("Please enter a valid quantity.");
+    return;
+  }
+
+  inventory[pendingBarcode] = {
+    barcode: pendingBarcode,
+    name: name,
+    quantity: quantity
+  };
+
+  const savedName = name;
+  closeModal();
+  saveDB();
+  showMessage("✅ Saved " + savedName);
+};
+
+$("cancelProduct").onclick = closeModal;
+
+$("manualSubmit").onclick = () => {
+  const barcode = $("manualBarcode").value.trim();
+  if (!barcode) return;
+  handleBarcode(barcode);
+  $("manualBarcode").value = "";
+};
+
+$("manualBarcode").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("manualSubmit").click();
+});
+
+$("search").oninput = render;
+
+// Camera scanner
+$("startCamera").onclick = async () => {
+  if (cameraRunning) return;
+
+  if (typeof Html5Qrcode === "undefined") {
+    showMessage("Scanner library failed to load. Check your internet.");
+    return;
+  }
+
+  scanner = new Html5Qrcode("reader");
+
+  try {
+    await scanner.start(
+      { facingMode: "environment" },
+      {
+        fps: 10,
+        qrbox: { width: 250, height: 150 },
+        aspectRatio: 1.0
+      },
+      decodedText => {
+        handleBarcode(decodedText);
+      },
+      () => {}
+    );
+
+    cameraRunning = true;
+    showMessage("📷 Camera running");
+  } catch (err) {
+    showMessage("Camera error: " + err);
+  }
+};
+
+$("stopCamera").onclick = async () => {
+  if (scanner && cameraRunning) {
+    try {
+      await scanner.stop();
+      scanner.clear();
+    } catch (err) {}
+    cameraRunning = false;
+    showMessage("Camera stopped");
+  }
+};
+
+// Export inventory
+$("exportBtn").onclick = () => {
+  const blob = new Blob(
+    [JSON.stringify({ products: inventory }, null, 2)],
+    { type: "application/json" }
+  );
+
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "DB.json";
+  link.click();
+  URL.revokeObjectURL(link.href);
+};
+
+// Import inventory
+$("importBtn").onclick = () => $("fileInput").click();
+
+$("fileInput").onchange = async event => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data.products || typeof data.products !== "object") {
+      throw new Error("Invalid database format");
+    }
+
+    if (!confirm("Replace your current inventory with this backup?")) return;
+
+    inventory = data.products;
+    saveDB();
+    showMessage("Database imported successfully!");
+  } catch (err) {
+    alert("Import failed: " + err.message);
+  }
+
+  event.target.value = "";
+};
+
+render();
+</script>
+</body>
+</html>
