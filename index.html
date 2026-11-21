@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,12 +6,10 @@
 <meta name="theme-color" content="#14231a">
 <title>Food Inventory</title>
 
-<script src="https://unpkg.com/html5-qrcode@2.3.8"></script>
+<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
 
 <style>
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -27,10 +24,7 @@ header {
   border-bottom: 1px solid #304235;
 }
 
-header h1 {
-  margin: 0;
-  font-size: 27px;
-}
+header h1 { margin: 0; font-size: 27px; }
 
 header p {
   color: #a2b5a5;
@@ -51,10 +45,7 @@ main {
   margin-bottom: 15px;
 }
 
-h2 {
-  font-size: 19px;
-  margin-top: 0;
-}
+h2 { font-size: 19px; margin-top: 0; }
 
 button, input, select {
   font: inherit;
@@ -71,9 +62,7 @@ button {
   touch-action: manipulation;
 }
 
-button:active {
-  transform: scale(.98);
-}
+button:active { transform: scale(.98); }
 
 button.secondary {
   background: #2a392e;
@@ -93,9 +82,7 @@ input, select {
   outline: none;
 }
 
-input:focus, select:focus {
-  border-color: #82d69a;
-}
+input:focus, select:focus { border-color: #82d69a; }
 
 .row {
   display: flex;
@@ -103,18 +90,10 @@ input:focus, select:focus {
   align-items: center;
 }
 
-.row > * {
-  min-width: 0;
-}
+.row > * { min-width: 0; }
+.row input { flex: 1; }
 
-.row input {
-  flex: 1;
-}
-
-.stats {
-  display: flex;
-  gap: 10px;
-}
+.stats { display: flex; gap: 10px; }
 
 .stat {
   flex: 1;
@@ -142,17 +121,12 @@ input:focus, select:focus {
 
 #reader video {
   width: 100% !important;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 12px;
+  max-height: 60vh;
 }
 
-#reader img {
-  display: none;
-}
-
-#cameraSelect {
-  margin: 10px 0;
-}
+#cameraSelect { margin: 10px 0; }
 
 #scanStatus {
   min-height: 22px;
@@ -161,9 +135,7 @@ input:focus, select:focus {
   overflow-wrap: anywhere;
 }
 
-#scanStatus.error {
-  color: #ff9797;
-}
+#scanStatus.error { color: #ff9797; }
 
 .product {
   display: flex;
@@ -173,9 +145,7 @@ input:focus, select:focus {
   border-bottom: 1px solid #304235;
 }
 
-.product:last-child {
-  border-bottom: none;
-}
+.product:last-child { border-bottom: none; }
 
 .product-info {
   flex: 1;
@@ -211,9 +181,7 @@ input:focus, select:focus {
   font-weight: bold;
 }
 
-.hidden {
-  display: none !important;
-}
+.hidden { display: none !important; }
 
 .modal {
   position: fixed;
@@ -237,9 +205,7 @@ input:focus, select:focus {
   overflow-y: auto;
 }
 
-.modal-content h2 {
-  margin-top: 0;
-}
+.modal-content h2 { margin-top: 0; }
 
 .modal-content label {
   display: block;
@@ -263,22 +229,10 @@ footer {
   padding: 12px 0;
 }
 
-#reader__scan_region {
-  min-height: 100px;
-}
-
 @media (max-width: 420px) {
-  main {
-    padding: 11px;
-  }
-
-  .card {
-    padding: 13px;
-  }
-
-  header h1 {
-    font-size: 24px;
-  }
+  main { padding: 11px; }
+  .card { padding: 13px; }
+  header h1 { font-size: 24px; }
 }
 </style>
 </head>
@@ -292,7 +246,6 @@ footer {
 
 <main>
 
-  <!-- Statistics -->
   <section class="card">
     <div class="stats">
       <div class="stat">
@@ -306,7 +259,6 @@ footer {
     </div>
   </section>
 
-  <!-- Scanner -->
   <section class="card">
     <h2>📷 Barcode Scanner</h2>
 
@@ -327,7 +279,6 @@ footer {
     <div id="scanStatus">Camera is stopped.</div>
   </section>
 
-  <!-- Manual barcode -->
   <section class="card">
     <h2>⌨️ Enter barcode manually</h2>
     <div class="row">
@@ -339,14 +290,12 @@ footer {
     </div>
   </section>
 
-  <!-- Inventory -->
   <section class="card">
     <h2>📦 Inventory</h2>
     <input id="search" placeholder="Search products..." autocomplete="off">
     <div id="inventoryList"></div>
   </section>
 
-  <!-- Backup -->
   <section class="card">
     <h2>💾 Database backup</h2>
     <p style="color:#a8b9aa">
@@ -365,7 +314,6 @@ footer {
 
 <footer>Food Inventory · Saved on this device</footer>
 
-<!-- Add new product dialog -->
 <div id="modal" class="modal hidden">
   <div class="modal-content">
     <h2>🆕 New product</h2>
@@ -385,33 +333,25 @@ footer {
 <script>
 "use strict";
 
-// =============================================
-// FOOD INVENTORY
-// =============================================
-
 const STORAGE_KEY = "foodInventory_v2";
 
 let inventory = loadDatabase();
 let scanner = null;
+let scannerControls = null;
 let cameraRunning = false;
 let pendingBarcode = null;
 let cameras = [];
 let scanCooldown = {};
-let lastScanTime = 0;
 
-// DOM shortcut
 const $ = id => document.getElementById(id);
 
-// =============================================
 // DATABASE
-// =============================================
 
 function loadDatabase() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) return JSON.parse(saved);
 
-    // Attempt migration from previous version
     const old = localStorage.getItem("foodInventory_v1");
     if (old) {
       const parsed = JSON.parse(old);
@@ -434,9 +374,7 @@ function saveDatabase() {
   }
 }
 
-// =============================================
 // DISPLAY
-// =============================================
 
 function render() {
   const products = Object.values(inventory);
@@ -512,25 +450,22 @@ function changeQuantity(barcode, amount) {
   saveDatabase();
 }
 
-// =============================================
 // STATUS
-// =============================================
 
 function setStatus(text, isError = false) {
   $("scanStatus").textContent = text;
   $("scanStatus").classList.toggle("error", isError);
 }
 
-// =============================================
 // BARCODE HANDLING
-// =============================================
 
 function handleBarcode(rawBarcode) {
   const barcode = String(rawBarcode).trim();
   if (!barcode) return;
 
-  // Ignore repeated camera readings of the same code
   const now = Date.now();
+
+  // Ignore repeated readings of the same code for 2 seconds
   if (scanCooldown[barcode] && now - scanCooldown[barcode] < 2000) {
     return;
   }
@@ -546,17 +481,12 @@ function handleBarcode(rawBarcode) {
       "✅ " + inventory[barcode].name +
       " +1 (now " + inventory[barcode].quantity + ")"
     );
-
-    // Stop repeated scans while the same item remains in view
-    lastScanTime = now;
   } else {
     openNewProduct(barcode);
   }
 }
 
-// =============================================
 // NEW PRODUCT
-// =============================================
 
 function openNewProduct(barcode) {
   pendingBarcode = barcode;
@@ -607,9 +537,7 @@ $("saveProduct").onclick = () => {
 
 $("cancelProduct").onclick = closeModal;
 
-// =============================================
 // MANUAL BARCODE ENTRY
-// =============================================
 
 $("manualSubmit").onclick = () => {
   const barcode = $("manualBarcode").value.trim();
@@ -625,30 +553,32 @@ $("manualBarcode").addEventListener("keydown", event => {
   }
 });
 
-// =============================================
 // SEARCH
-// =============================================
 
 $("search").addEventListener("input", render);
 
-// =============================================
 // CAMERA DISCOVERY
-// =============================================
 
 async function loadCameras() {
   const select = $("cameraSelect");
 
   try {
-    if (!window.Html5Qrcode) {
-      setStatus("Scanner library failed to load. Check your internet connection.", true);
-      select.innerHTML = '<option value="">Scanner unavailable</option>';
-      return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      throw new Error("Camera APIs unavailable");
     }
 
-    cameras = await Html5Qrcode.getCameras();
+    const permissionStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false
+    });
+
+    permissionStream.getTracks().forEach(track => track.stop());
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    cameras = devices.filter(device => device.kind === "videoinput");
     select.innerHTML = "";
 
-    if (!cameras || cameras.length === 0) {
+    if (!cameras.length) {
       select.innerHTML = '<option value="">No cameras found</option>';
       setStatus("No cameras detected.", true);
       return;
@@ -656,127 +586,119 @@ async function loadCameras() {
 
     cameras.forEach((camera, index) => {
       const option = document.createElement("option");
-      option.value = camera.id;
-      option.textContent = camera.label || ("Camera " + (index + 1));
+      option.value = camera.deviceId;
+      option.textContent = camera.label || `Camera ${index + 1}`;
       select.appendChild(option);
     });
 
-    // Prefer a camera whose label suggests the rear camera
-    const backCamera = cameras.find(c =>
-      /back|rear|environment/i.test(c.label)
+    const rearCamera = cameras.find(camera =>
+      /back|rear|environment/i.test(camera.label)
     );
 
-    if (backCamera) {
-      select.value = backCamera.id;
+    if (rearCamera) {
+      select.value = rearCamera.deviceId;
+    } else if (cameras.length > 1) {
+      select.selectedIndex = cameras.length - 1;
     }
 
     setStatus("Camera ready. Press Start camera.");
   } catch (err) {
     console.warn("Camera discovery failed:", err);
-    select.innerHTML = '<option value="">Camera permission required</option>';
-    setStatus("Allow camera access, then press Start camera.", true);
+    select.innerHTML = '<option value="">Default rear camera</option>';
+    setStatus("Press Start camera to open the camera.", true);
   }
 }
 
-// =============================================
-// START CAMERA
-// =============================================
+// START CAMERA (ZXing)
 
 async function startCamera() {
   if (cameraRunning) return;
 
-  if (!window.Html5Qrcode) {
-    setStatus("Scanner library did not load. Check your internet.", true);
+  if (!window.ZXingBrowser ||
+      !window.ZXingBrowser.BrowserMultiFormatReader) {
+    setStatus("Scanner library failed to load. Check your internet and reload.", true);
     return;
   }
 
-  const cameraId = $("cameraSelect").value;
+  const selectedCameraId = $("cameraSelect").value || undefined;
 
-  // Barcode formats used by grocery products
-  const formats = [
-    Html5QrcodeSupportedFormats.EAN_13,
-    Html5QrcodeSupportedFormats.EAN_8,
-    Html5QrcodeSupportedFormats.UPC_A,
-    Html5QrcodeSupportedFormats.UPC_E,
-    Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.CODE_39,
-    Html5QrcodeSupportedFormats.ITF
-  ].filter(f => f !== undefined);
+  scanner = new ZXingBrowser.BrowserMultiFormatReader();
 
-  scanner = new Html5Qrcode("reader", {
-    formatsToSupport: formats,
-    verbose: false
-  });
+  const video = document.createElement("video");
+  video.setAttribute("playsinline", "true");
+  video.setAttribute("autoplay", "true");
+  video.muted = true;
+  video.style.width = "100%";
+  video.style.maxHeight = "60vh";
+  video.style.objectFit = "contain";
+  video.style.background = "#090d0a";
 
-  // Try the selected camera, or default to rear camera
-  const cameraConfig = cameraId
-    ? cameraId
-    : { facingMode: "environment" };
-
-  const config = {
-    fps: 15,
-    aspectRatio: 1.7777778,
-    disableFlip: false,
-    qrbox: (viewWidth, viewHeight) => {
-      const width = Math.floor(viewWidth * 0.92);
-      const height = Math.floor(viewHeight * 0.40);
-      return { width, height };
-    }
-    // no experimental scan types, keep broadly compatible
-  };
+  $("reader").replaceChildren(video);
 
   try {
     setStatus("Starting camera...");
 
-    await scanner.start(
-      cameraConfig,
-      config,
-      decodedText => {
-        handleBarcode(decodedText);
-      },
-      errorMessage => {
-        // Normal when no barcode is currently visible.
+    const controls = await scanner.decodeFromVideoDevice(
+      selectedCameraId,
+      video,
+      (result, error) => {
+        if (result) {
+          const text = result.getText ? result.getText() : result.text;
+          if (text) handleBarcode(text);
+        }
       }
     );
 
+    scannerControls = controls;
     cameraRunning = true;
-    setStatus("📷 Camera running. Point at a barcode.");
+    setStatus("📷 Camera running. Centre the barcode in the camera view.");
   } catch (err) {
     console.error("Camera start error:", err);
     setStatus("Camera failed: " + (err.message || err), true);
+
+    if (scannerControls && scannerControls.stop) {
+      scannerControls.stop();
+    }
+
+    scannerControls = null;
     scanner = null;
     cameraRunning = false;
+    $("reader").replaceChildren();
   }
 }
 
 async function stopCamera() {
-  if (!scanner || !cameraRunning) return;
+  if (!cameraRunning && !scannerControls) return;
 
   try {
-    await scanner.stop();
-    scanner.clear();
+    if (scannerControls && scannerControls.stop) {
+      scannerControls.stop();
+    }
+
+    if (scanner && scanner.reset) {
+      scanner.reset();
+    }
   } catch (err) {
     console.warn("Camera stop error:", err);
   }
 
+  scannerControls = null;
   scanner = null;
   cameraRunning = false;
+  $("reader").replaceChildren();
   setStatus("Camera stopped.");
 }
 
 $("startCamera").onclick = startCamera;
 $("stopCamera").onclick = stopCamera;
 
-// Switch camera if camera is already running
 $("cameraSelect").addEventListener("change", async () => {
   if (!cameraRunning) return;
   await stopCamera();
   await startCamera();
 });
 
-// =============================================
-// EXPORT
-// =============================================
+// EXPORT DATABASE
 
 $("exportBtn").onclick = () => {
   const backup = {
@@ -799,9 +721,7 @@ $("exportBtn").onclick = () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-// =============================================
-// IMPORT
-// =============================================
+// IMPORT DATABASE
 
 $("importBtn").onclick = () => $("fileInput").click();
 
@@ -811,8 +731,8 @@ $("fileInput").onchange = async event => {
 
   try {
     const data = JSON.parse(await file.text());
-
     const products = data.products;
+
     if (!products || typeof products !== "object" || Array.isArray(products)) {
       throw new Error("Invalid database format.");
     }
@@ -832,9 +752,7 @@ $("fileInput").onchange = async event => {
   event.target.value = "";
 };
 
-// =============================================
-// INIT
-// =============================================
+// INITIALIZE
 
 render();
 loadCameras();
